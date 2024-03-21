@@ -8,20 +8,17 @@
   const darkSquareColor = "#888";
   const hoverColor = "#636331";
   const selectColor = "red";
+  const checkColor = "blue";
   let player = "w";
 
   let hoverSquare = "none";
   let selectedSquare = "none";
+  let checkedSquare = "none";
 
   const pieces = [];
-
   const images = {};
-
-  const options = [];
-
-  // w/b P Q K
-  // wB
-  // 1_2 
+  let options = [];
+  const optionsInCheck = [];
 
   function isOption(sq) {
     const op = options.find(o => {
@@ -45,6 +42,9 @@
         }
         if (square === selectedSquare) {
           ctx.fillStyle = selectColor;
+        }
+        if (square === checkedSquare) {
+          ctx.fillStyle = checkColor;
         }
         ctx.fillRect((i-1) * squareSize, (j-1) * squareSize, squareSize, squareSize);
 
@@ -114,14 +114,14 @@
     hoverSquare = xyToSq(pos.x, pos.y);
   }
 
-  function movePiece(target) {
-    for (let i = 0; i < pieces.length; i++) {
-      if (pieces[i].sq === selectedSquare) {
-        pieces[i].sq = target;
+  function movePiece(source, target, chessboard) {
+    for (let i = 0; i < chessboard.length; i++) {
+      if (chessboard[i].sq === source) {
+        chessboard[i].sq = target;
         continue;
       }
-      if (pieces[i].sq === target) {
-        pieces[i].sq = "none";
+      if (chessboard[i].sq === target) {
+        chessboard[i].sq = "none";
       }
     }
   }
@@ -157,6 +157,75 @@
     return p.id[0] !== player;
   }
 
+  function isCurrentPlayerInCheck() {
+    const p = pieces.find((piece) => {
+      return piece.sq === checkedSquare;
+    });
+
+    if (!p) {
+      return false;
+    }
+
+    return p.id[0] === player;
+  }
+
+  function getSquareOfKing(pl) {
+    const kingId = `${pl}K`;
+    for (let i = 0; i < pieces.length; i++) {
+      if (pieces[i].id == kingId) {
+        return pieces[i].sq;
+      }
+    }
+  }
+
+  function calculateCheckedSquare(chessboard, kingSquare, forPlayer) {
+    let resultSquare = "none";
+    let foundSquare = false;
+    // czy w nastepnym ruchu w opcjach jest pole z krolem przeciwnika
+    console.log("kingSquare is", kingSquare);
+    chessboard.forEach(p => {
+      if (foundSquare) {
+        return;
+      }
+      if (p.id[0] !== forPlayer) {
+        return;
+      }
+
+      console.log("checking ", p.sq, "for options");
+      let tmpOptions = calculateOptions(p.sq)
+      if (tmpOptions.includes(kingSquare)) {
+        resultSquare = kingSquare;
+        foundSquare = true;
+        console.log("YESS!!!!")
+      }
+      console.log(tmpOptions);
+      tmpOptions.length = 0;
+    });
+
+    return resultSquare;
+  }
+
+  function calculateOptionsInCheck(square) {
+    console.log("calculateOptionsInCheck");
+    let tmpOptions = calculateOptions(square);
+
+    console.log("options", tmpOptions);
+
+    tmpOptions.filter(opt => {
+      const piecesCopy = pieces.map(p => { return {...p}});
+      console.log("movePiece from->to", square, opt);
+      movePiece(square, opt, piecesCopy);
+      const opponent = player === "w" ? "b" : "w";
+      const newCheckedSquare = calculateCheckedSquare(piecesCopy, getSquareOfKing(player), opponent);
+      console.log("newCheckedSquare", newCheckedSquare);
+
+      return newCheckedSquare !== "none";
+    });
+
+    console.log("options after the procedure", tmpOptions);
+    return tmpOptions;
+  }
+
   function calculateOptions(square) {
     const p = pieces.find((piece) => {
       return piece.sq === square;
@@ -166,71 +235,76 @@
       return;
     }
 
-    // square: "5_7"
     const [x, y] = square.split("_").map(i => parseInt(i))
+    let tmpOptions = [];
     if (p.id[1] === "P") {
-      calculateOptionsForPawn(p, x, y)
+      tmpOptions = calculateOptionsForPawn(p, x, y)
     }
     if (p.id[1] === "N") {
-      calculateOptionsForKnight(x, y)
+      tmpOptions = calculateOptionsForKnight(x, y)
     }
     if (p.id[1] === "B") {
-      calculateOptionsForBishop(x, y)
+      tmpOptions = calculateOptionsForBishop(x, y)
     }
     if (p.id[1] === "R") {
-      calculateOptionsForRook(x, y)
+      tmpOptions = calculateOptionsForRook(x, y)
     }
     if (p.id[1] === "Q") {
-      calculateOptionsForBishop(x, y)
-      calculateOptionsForRook(x, y)
+      const bishopOptions = calculateOptionsForBishop(x, y)
+      const rookOptions = calculateOptionsForRook(x, y)
+      tmpOptions = [...bishopOptions, ...rookOptions];
     }
     if (p.id[1] === "K") {
-      calculateOptionsForKing(x, y)
+      tmpOptions = calculateOptionsForKing(x, y)
     }
+    return tmpOptions;
   }
 
   function calculateOptionsForKing(x, y) {
+    let tmpOptions = [];
     let s;
     s = sq(x-1, y-1);
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x, y-1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+1, y-1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x-1, y+1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x, y+1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+1, y+1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x-1, y)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+1, y)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
+    return tmpOptions;
   }
 
   function calculateOptionsForRook(x, y) {
+    let tmpOptions = [];
     let cX = x+1;
     let cY = y;
     let c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -242,7 +316,7 @@
     cY = y;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -254,7 +328,7 @@
     cY = y-1;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -266,21 +340,23 @@
     cY = y+1;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
       cY++;
       c = sq(cX, cY)
     }
+    return tmpOptions;
   }
 
   function calculateOptionsForBishop(x, y) {
     let cX = x+1; // 7
     let cY = y+1; // 9
     let c = sq(cX, cY)
+    let tmpOptions = [];
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -293,7 +369,7 @@
     cY = y-1;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -306,8 +382,9 @@
     cY = y-1;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
+        console.log("enemy is at C, stopping", c);
         break;
       }
       cX++;
@@ -319,7 +396,7 @@
     cY = y+1;
     c = sq(cX, cY)
     while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
-      options.push(c)
+      tmpOptions.push(c)
       if (isEnemyAt(c)) {
         break;
       }
@@ -327,81 +404,86 @@
       cY++;
       c = sq(cX, cY)
     }
+    return tmpOptions;
   }
 
   function calculateOptionsForKnight(x, y) {
     let s;
+    let tmpOptions = [];
     s = sq(x-1, y+2);
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+1, y+2)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x-1, y-2)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+1, y-2)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+2, y-1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x+2, y+1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x-2, y-1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
     s = sq(x-2, y+1)
     if (!isMyPieceAt(s)) {
-      options.push(s)
+      tmpOptions.push(s)
     }
+    return tmpOptions;
   }
 
   function calculateOptionsForPawn(p, x, y) {
     let s;
+    let tmpOptions = [];
     if (p.id[0] === "w") {
       s = sq(x, y-1)
       if (isFree(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x, y-2)
       if (y === 7 && isFree(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x-1, y-1)
       if (!isFree(s) && isEnemyAt(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x+1, y-1)
       if (!isFree(s) && isEnemyAt(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
     } else {
       s = sq(x, y+1)
       if (isFree(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x, y+2)
       if (y === 2 && isFree(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x-1, y+1)
       if (!isFree(s) && isEnemyAt(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
       s = sq(x+1, y+1)
       if (!isFree(s) && isEnemyAt(s)) {
-        options.push(s)
+        tmpOptions.push(s)
       }
     }
+    return tmpOptions;
   }
 
   function isMyPieceAt(sq) {
@@ -429,16 +511,26 @@
 
     if (selectedSquare != "none") {
       if (options.length > 0 && isOption(targetSquare)) {
-        movePiece(targetSquare);
+        movePiece(selectedSquare, targetSquare, pieces);
+        const opponent = player === "w" ? "b" : "w";
+        const kingSquare = getSquareOfKing(opponent);
+        const forPlayer = player;
+        checkedSquare = calculateCheckedSquare(pieces, kingSquare, forPlayer);
         switchPlayer();
+        if (isCurrentPlayerInCheck()) {
+          // oblicz opcje biorac pod uwage ze jest szach
+        }
       }
       clearSelection();
       clearOptions();
     } else {
       if (isMyPieceAt(targetSquare)) {
         selectedSquare = targetSquare;
-        // calculate options
-        calculateOptions(targetSquare);
+        if (isCurrentPlayerInCheck()) {
+          calculateOptionsInCheck(targetSquare);
+        } else {
+          options = calculateOptions(targetSquare);
+        }
       }
     }
   }
