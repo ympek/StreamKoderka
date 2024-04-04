@@ -137,28 +137,32 @@
     return false;
   }
 
-  function isFree(square) {
-    const p = pieces.find((piece) => {
+  function isFree(square, chessboard) {
+    const p = chessboard.find((piece) => {
       return piece.sq === square;
     });
 
     return !p;
   }
 
-  function isEnemyAt(square) {
-    const p = pieces.find((piece) => {
+  function isEnemyAt(square, chessboard) {
+    const p = chessboard.find((piece) => {
       return piece.sq === square;
     });
+
+    console.log("why 1")
 
     if (!p) {
       return false;
     }
 
+    console.log("why 2", player)
+
     return p.id[0] !== player;
   }
 
-  function isCurrentPlayerInCheck() {
-    const p = pieces.find((piece) => {
+  function isCurrentPlayerInCheck(chessboard) {
+    const p = chessboard.find((piece) => {
       return piece.sq === checkedSquare;
     });
 
@@ -169,11 +173,11 @@
     return p.id[0] === player;
   }
 
-  function getSquareOfKing(pl) {
+  function getSquareOfKing(pl, chessboard) {
     const kingId = `${pl}K`;
-    for (let i = 0; i < pieces.length; i++) {
-      if (pieces[i].id == kingId) {
-        return pieces[i].sq;
+    for (let i = 0; i < chessboard.length; i++) {
+      if (chessboard[i].id == kingId) {
+        return chessboard[i].sq;
       }
     }
   }
@@ -192,7 +196,12 @@
       }
 
       console.log("checking ", p.sq, "for options");
-      let tmpOptions = calculateOptions(p.sq)
+      let tmpPlayer = player;
+      if (forPlayer != player) {
+        player = forPlayer;
+      }
+      let tmpOptions = calculateOptions(p.sq, chessboard)
+      player = tmpPlayer;
       if (tmpOptions.includes(kingSquare)) {
         resultSquare = kingSquare;
         foundSquare = true;
@@ -205,29 +214,33 @@
     return resultSquare;
   }
 
-  function calculateOptionsInCheck(square) {
+  function calculateOptionsInCheck(square, chessboard) {
     console.log("calculateOptionsInCheck");
-    let tmpOptions = calculateOptions(square);
+    let tmpOptions = calculateOptions(square, chessboard);
 
     console.log("options", tmpOptions);
 
-    tmpOptions.filter(opt => {
-      const piecesCopy = pieces.map(p => { return {...p}});
+    const resultingOptions = tmpOptions.filter(opt => {
+      const piecesCopy = chessboard.map(p => { return {...p}});
       console.log("movePiece from->to", square, opt);
+      console.log("piecesCopy", JSON.stringify(piecesCopy))
+      console.log("pieces", JSON.stringify(pieces))
       movePiece(square, opt, piecesCopy);
+      console.log("piecesCopy AFTER", JSON.stringify(piecesCopy))
+      console.log("pieces AFTER", JSON.stringify(pieces))
       const opponent = player === "w" ? "b" : "w";
-      const newCheckedSquare = calculateCheckedSquare(piecesCopy, getSquareOfKing(player), opponent);
+      const newCheckedSquare = calculateCheckedSquare(piecesCopy, getSquareOfKing(player, chessboard), opponent);
       console.log("newCheckedSquare", newCheckedSquare);
 
-      return newCheckedSquare !== "none";
+      return newCheckedSquare === "none";
     });
 
     console.log("options after the procedure", tmpOptions);
-    return tmpOptions;
+    return resultingOptions;
   }
 
-  function calculateOptions(square) {
-    const p = pieces.find((piece) => {
+  function calculateOptions(square, chessboard) {
+    const p = chessboard.find((piece) => {
       return piece.sq === square;
     });
 
@@ -238,74 +251,74 @@
     const [x, y] = square.split("_").map(i => parseInt(i))
     let tmpOptions = [];
     if (p.id[1] === "P") {
-      tmpOptions = calculateOptionsForPawn(p, x, y)
+      tmpOptions = calculateOptionsForPawn(p, x, y, chessboard)
     }
     if (p.id[1] === "N") {
-      tmpOptions = calculateOptionsForKnight(x, y)
+      tmpOptions = calculateOptionsForKnight(x, y, chessboard)
     }
     if (p.id[1] === "B") {
-      tmpOptions = calculateOptionsForBishop(x, y)
+      tmpOptions = calculateOptionsForBishop(x, y, chessboard)
     }
     if (p.id[1] === "R") {
-      tmpOptions = calculateOptionsForRook(x, y)
+      tmpOptions = calculateOptionsForRook(x, y, chessboard)
     }
     if (p.id[1] === "Q") {
-      const bishopOptions = calculateOptionsForBishop(x, y)
-      const rookOptions = calculateOptionsForRook(x, y)
+      const bishopOptions = calculateOptionsForBishop(x, y, chessboard)
+      const rookOptions = calculateOptionsForRook(x, y, chessboard)
       tmpOptions = [...bishopOptions, ...rookOptions];
     }
     if (p.id[1] === "K") {
-      tmpOptions = calculateOptionsForKing(x, y)
+      tmpOptions = calculateOptionsForKing(x, y, chessboard)
     }
     return tmpOptions;
   }
 
-  function calculateOptionsForKing(x, y) {
+  function calculateOptionsForKing(x, y, board) {
     let tmpOptions = [];
     let s;
     s = sq(x-1, y-1);
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x, y-1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+1, y-1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x-1, y+1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x, y+1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+1, y+1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x-1, y)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+1, y)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     return tmpOptions;
   }
 
-  function calculateOptionsForRook(x, y) {
+  function calculateOptionsForRook(x, y, board) {
     let tmpOptions = [];
     let cX = x+1;
     let cY = y;
     let c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cX++;
@@ -315,9 +328,9 @@
     cX = x-1;
     cY = y;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
@@ -327,9 +340,9 @@
     cX = x;
     cY = y-1;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cY--;
@@ -339,9 +352,9 @@
     cX = x;
     cY = y+1;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cY++;
@@ -350,14 +363,16 @@
     return tmpOptions;
   }
 
-  function calculateOptionsForBishop(x, y) {
+  function calculateOptionsForBishop(x, y, board) {
+    console.log("calculateOptionsForBishop")
     let cX = x+1; // 7
     let cY = y+1; // 9
     let c = sq(cX, cY)
     let tmpOptions = [];
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    console.log("loop 1", cX, cY, c);
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cX++;
@@ -368,9 +383,11 @@
     cX = x-1;
     cY = y-1;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    console.log("loop 2", cX, cY, c);
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      console.log("inside loop 2", cX, cY, c);
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
@@ -381,9 +398,17 @@
     cX = x+1;
     cY = y-1;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    console.log("loop 3", cX, cY, c);
+    // 5_1
+    if (isEnemyAt("5_1", board)) {
+      console.log("hardcoded true")
+    } else {
+      console.log("hardcoded false")
+    }
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      console.log("inside loop 3", cX, cY, c);
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         console.log("enemy is at C, stopping", c);
         break;
       }
@@ -395,9 +420,11 @@
     cX = x-1;
     cY = y+1;
     c = sq(cX, cY)
-    while(!isOut(c) && (isFree(c) || isEnemyAt(c))) {
+    console.log("loop 4", cX, cY, c);
+    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      console.log("inside loop 4", cX, cY, c);
       tmpOptions.push(c)
-      if (isEnemyAt(c)) {
+      if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
@@ -407,88 +434,88 @@
     return tmpOptions;
   }
 
-  function calculateOptionsForKnight(x, y) {
+  function calculateOptionsForKnight(x, y, board) {
     let s;
     let tmpOptions = [];
     s = sq(x-1, y+2);
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+1, y+2)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x-1, y-2)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+1, y-2)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+2, y-1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x+2, y+1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x-2, y-1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     s = sq(x-2, y+1)
-    if (!isMyPieceAt(s)) {
+    if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s)
     }
     return tmpOptions;
   }
 
-  function calculateOptionsForPawn(p, x, y) {
+  function calculateOptionsForPawn(p, x, y, board) {
     let s;
     let tmpOptions = [];
     if (p.id[0] === "w") {
       s = sq(x, y-1)
-      if (isFree(s)) {
+      if (isFree(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x, y-2)
-      if (y === 7 && isFree(s)) {
+      if (y === 7 && isFree(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x-1, y-1)
-      if (!isFree(s) && isEnemyAt(s)) {
+      if (!isFree(s, board) && isEnemyAt(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x+1, y-1)
-      if (!isFree(s) && isEnemyAt(s)) {
+      if (!isFree(s, board) && isEnemyAt(s, board)) {
         tmpOptions.push(s)
       }
     } else {
       s = sq(x, y+1)
-      if (isFree(s)) {
+      if (isFree(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x, y+2)
-      if (y === 2 && isFree(s)) {
+      if (y === 2 && isFree(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x-1, y+1)
-      if (!isFree(s) && isEnemyAt(s)) {
+      if (!isFree(s, board) && isEnemyAt(s, board)) {
         tmpOptions.push(s)
       }
       s = sq(x+1, y+1)
-      if (!isFree(s) && isEnemyAt(s)) {
+      if (!isFree(s, board) && isEnemyAt(s, board)) {
         tmpOptions.push(s)
       }
     }
     return tmpOptions;
   }
 
-  function isMyPieceAt(sq) {
+  function isMyPieceAt(sq, chessboard) {
     // sprawdz czy source jest figura gracza
-    const p = pieces.find((piece) => {
+    const p = chessboard.find((piece) => {
       return piece.sq === sq;
     });
 
@@ -513,23 +540,23 @@
       if (options.length > 0 && isOption(targetSquare)) {
         movePiece(selectedSquare, targetSquare, pieces);
         const opponent = player === "w" ? "b" : "w";
-        const kingSquare = getSquareOfKing(opponent);
+        const kingSquare = getSquareOfKing(opponent, pieces);
         const forPlayer = player;
         checkedSquare = calculateCheckedSquare(pieces, kingSquare, forPlayer);
         switchPlayer();
-        if (isCurrentPlayerInCheck()) {
+        if (isCurrentPlayerInCheck(pieces)) {
           // oblicz opcje biorac pod uwage ze jest szach
         }
       }
       clearSelection();
       clearOptions();
     } else {
-      if (isMyPieceAt(targetSquare)) {
+      if (isMyPieceAt(targetSquare, pieces)) {
         selectedSquare = targetSquare;
-        if (isCurrentPlayerInCheck()) {
-          calculateOptionsInCheck(targetSquare);
+        if (isCurrentPlayerInCheck(pieces)) {
+          options = calculateOptionsInCheck(targetSquare, pieces);
         } else {
-          options = calculateOptions(targetSquare);
+          options = calculateOptions(targetSquare, pieces);
         }
       }
     }
