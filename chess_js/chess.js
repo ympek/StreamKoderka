@@ -150,13 +150,9 @@
       return piece.sq === square;
     });
 
-    console.log("why 1")
-
     if (!p) {
       return false;
     }
-
-    console.log("why 2", player)
 
     return p.id[0] !== player;
   }
@@ -186,7 +182,7 @@
     let resultSquare = "none";
     let foundSquare = false;
     // czy w nastepnym ruchu w opcjach jest pole z krolem przeciwnika
-    console.log("kingSquare is", kingSquare);
+    // console.log("kingSquare is", kingSquare);
     chessboard.forEach(p => {
       if (foundSquare) {
         return;
@@ -195,7 +191,7 @@
         return;
       }
 
-      console.log("checking ", p.sq, "for options");
+      // console.log("checking ", p.sq, "for options");
       let tmpPlayer = player;
       if (forPlayer != player) {
         player = forPlayer;
@@ -207,35 +203,48 @@
         foundSquare = true;
         console.log("YESS!!!!")
       }
-      console.log(tmpOptions);
+      // console.log(tmpOptions);
       tmpOptions.length = 0;
     });
 
     return resultSquare;
   }
 
+  function getPieceIdBySquare(s, chessboard) {
+    const p = chessboard.find((piece) => {
+      return piece.sq === s;
+    });
+    return p.id;
+  }
+
   function calculateOptionsInCheck(square, chessboard) {
-    console.log("calculateOptionsInCheck");
+    // console.log("calculateOptionsInCheck");
     let tmpOptions = calculateOptions(square, chessboard);
 
-    console.log("options", tmpOptions);
+    const pId = getPieceIdBySquare(square, chessboard);
+    // console.log("options", tmpOptions);
 
     const resultingOptions = tmpOptions.filter(opt => {
       const piecesCopy = chessboard.map(p => { return {...p}});
-      console.log("movePiece from->to", square, opt);
-      console.log("piecesCopy", JSON.stringify(piecesCopy))
-      console.log("pieces", JSON.stringify(pieces))
+      // console.log("movePiece from->to", square, opt);
+      // console.log("piecesCopy", JSON.stringify(piecesCopy))
+      // console.log("pieces", JSON.stringify(pieces))
       movePiece(square, opt, piecesCopy);
-      console.log("piecesCopy AFTER", JSON.stringify(piecesCopy))
-      console.log("pieces AFTER", JSON.stringify(pieces))
+      // console.log("piecesCopy AFTER", JSON.stringify(piecesCopy))
+      // console.log("pieces AFTER", JSON.stringify(pieces))
       const opponent = player === "w" ? "b" : "w";
-      const newCheckedSquare = calculateCheckedSquare(piecesCopy, getSquareOfKing(player, chessboard), opponent);
-      console.log("newCheckedSquare", newCheckedSquare);
+      if (pId[1] === "K") {
+        kingSquare = opt;
+      } else {
+        kingSquare = getSquareOfKing(player, chessboard);
+      }
+      const newCheckedSquare = calculateCheckedSquare(piecesCopy, kingSquare, opponent);
+      // console.log("newCheckedSquare", newCheckedSquare);
 
       return newCheckedSquare === "none";
     });
 
-    console.log("options after the procedure", tmpOptions);
+    // console.log("options after the procedure", tmpOptions);
     return resultingOptions;
   }
 
@@ -364,12 +373,12 @@
   }
 
   function calculateOptionsForBishop(x, y, board) {
-    console.log("calculateOptionsForBishop")
+    // console.log("calculateOptionsForBishop")
     let cX = x+1; // 7
     let cY = y+1; // 9
     let c = sq(cX, cY)
     let tmpOptions = [];
-    console.log("loop 1", cX, cY, c);
+    // console.log("loop 1", cX, cY, c);
     while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
       tmpOptions.push(c)
       if (isEnemyAt(c, board)) {
@@ -383,9 +392,9 @@
     cX = x-1;
     cY = y-1;
     c = sq(cX, cY)
-    console.log("loop 2", cX, cY, c);
+    // console.log("loop 2", cX, cY, c);
     while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      console.log("inside loop 2", cX, cY, c);
+      // console.log("inside loop 2", cX, cY, c);
       tmpOptions.push(c)
       if (isEnemyAt(c, board)) {
         break;
@@ -398,18 +407,18 @@
     cX = x+1;
     cY = y-1;
     c = sq(cX, cY)
-    console.log("loop 3", cX, cY, c);
+    // console.log("loop 3", cX, cY, c);
     // 5_1
     if (isEnemyAt("5_1", board)) {
-      console.log("hardcoded true")
+      // console.log("hardcoded true")
     } else {
-      console.log("hardcoded false")
+      // console.log("hardcoded false")
     }
     while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      console.log("inside loop 3", cX, cY, c);
+      // console.log("inside loop 3", cX, cY, c);
       tmpOptions.push(c)
       if (isEnemyAt(c, board)) {
-        console.log("enemy is at C, stopping", c);
+        // console.log("enemy is at C, stopping", c);
         break;
       }
       cX++;
@@ -420,9 +429,9 @@
     cX = x-1;
     cY = y+1;
     c = sq(cX, cY)
-    console.log("loop 4", cX, cY, c);
+    // console.log("loop 4", cX, cY, c);
     while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      console.log("inside loop 4", cX, cY, c);
+      // console.log("inside loop 4", cX, cY, c);
       tmpOptions.push(c)
       if (isEnemyAt(c, board)) {
         break;
@@ -532,6 +541,21 @@
 
   // }
 
+  function isCheckmate() {
+    const playerBeingChecked  = player === "w" ? "b" : "w";
+    const allOptions = [];
+
+    pieces.forEach((piece) => {
+      if (piece.id[0] != playerBeingChecked) {
+        return;
+      }
+      let opts = calculateOptionsInCheck(piece.sq, pieces);
+      console.log("OPTS________", opts);
+    })
+
+    return false;
+  }
+
   function handleClick(e) {
     const pos = getMousePos(e);
     const targetSquare = xyToSq(pos.x, pos.y);
@@ -543,10 +567,10 @@
         const kingSquare = getSquareOfKing(opponent, pieces);
         const forPlayer = player;
         checkedSquare = calculateCheckedSquare(pieces, kingSquare, forPlayer);
+        // if (checkedSquare !== "none" && isCheckmate()) {
+        //   // oblicz opcje biorac pod uwage ze jest szach
+        // }
         switchPlayer();
-        if (isCurrentPlayerInCheck(pieces)) {
-          // oblicz opcje biorac pod uwage ze jest szach
-        }
       }
       clearSelection();
       clearOptions();
