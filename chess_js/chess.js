@@ -16,6 +16,12 @@
   let checkedSquare = "none";
   let enPassantSquare = "none";
   let capturedEnPassant = false;
+  let whiteKingNotMoved = true;
+  let whiteRookKingSideNotMoved = true;
+  let whiteRookQueenSideNotMoved = true;
+  let blackKingNotMoved = true;
+  let blackRookKingSideNotMoved = true;
+  let blackRookQueenSideNotMoved = true;
 
   const pieces = [];
   const images = {};
@@ -145,6 +151,31 @@
       if (chessboard[i].sq === target) {
         chessboard[i].sq = "none";
       }
+    }
+
+    // robienie roszady
+    const [sx, _s] = source.split("_").map((i) => parseInt(i));
+    const [dx, _d] = target.split("_").map((i) => parseInt(i));
+    if (pieceId === "wK" && (dx === sx + 2)) {
+      const p = chessboard.find((piece) => {
+        return piece.id === "wR" && piece.sq === "8_8";
+      });
+      p.sq = "6_8";
+    } else if (pieceId === "wK" && (dx === sx - 3)) {
+      const p = chessboard.find((piece) => {
+        return piece.id === "wR" && piece.sq === "1_8";
+      });
+      p.sq = "3_8";
+    } else if (pieceId === "bK" && (dx === sx + 2)) {
+      const p = chessboard.find((piece) => {
+        return piece.id === "bR" && piece.sq === "8_1";
+      });
+      p.sq = "6_1";
+    } else if (pieceId === "bK" && (dx === sx - 3)) {
+      const p = chessboard.find((piece) => {
+        return piece.id === "bR" && piece.sq === "1_1";
+      });
+      p.sq = "3_1";
     }
 
     if (capturedEnPassant) {
@@ -290,7 +321,7 @@
       return piece.sq === square;
     });
 
-    if (!p) {
+    if (!p || square == "none") {
       return [];
     }
 
@@ -314,13 +345,13 @@
       tmpOptions = [...bishopOptions, ...rookOptions];
     }
     if (p.id[1] === "K") {
-      tmpOptions = calculateOptionsForKing(x, y, chessboard);
+      tmpOptions = calculateOptionsForKing(p, x, y, chessboard);
     }
 
     return tmpOptions.filter((opt) => !isOut(opt));
   }
 
-  function calculateOptionsForKing(x, y, board) {
+  function calculateOptionsForKing(p, x, y, board) {
     let tmpOptions = [];
     let s;
     s = sq(x - 1, y - 1);
@@ -355,6 +386,24 @@
     if (!isMyPieceAt(s, board)) {
       tmpOptions.push(s);
     }
+
+    // roszada:
+    if (p.id[0] === "w") {
+      if (whiteKingNotMoved && whiteRookKingSideNotMoved  && isFree(sq(6,8), board) && isFree(sq(7,8), board)) {
+        tmpOptions.push(sq(7,8))
+      }
+      if (whiteKingNotMoved && whiteRookQueenSideNotMoved && isFree(sq(4,8), board) && isFree(sq(3,8), board) && isFree(sq(2,8), board)) {
+        tmpOptions.push(sq(2,8))
+      }
+    } else {
+      if (blackKingNotMoved && blackRookKingSideNotMoved  && isFree(sq(6,1), board) && isFree(sq(7,1), board)) {
+        tmpOptions.push(sq(7,1))
+      }
+      if (blackKingNotMoved && blackRookQueenSideNotMoved && isFree(sq(4,1), board) && isFree(sq(3,1), board) && isFree(sq(2,1), board)) {
+        tmpOptions.push(sq(2,1))
+      }
+    }
+
     return tmpOptions;
   }
 
@@ -582,6 +631,34 @@
     console.log("marked potential en passant sq as", enPassantSquare);
   }
 
+  function updateBooleans(source) {
+    const pId = getPieceIdBySquare(source, pieces);
+    if (pId === "wK") {
+      whiteKingNotMoved = false;
+    }
+    if (pId === "bK") {
+      blackKingNotMoved = false;
+    }
+
+    if (pId === "wR") {
+      if (source === "1_8") {
+        whiteRookQueenSideNotMoved = false;
+      }
+      if (source === "8_8") {
+        whiteRookQueenSideNotMoved = false;
+      }
+    }
+
+    if (pId === "bR") {
+      if (source === "1_1") {
+        blackRookQueenSideNotMoved = false;
+      }
+      if (source === "8_1") {
+        blackRookKingSideNotMoved = false;
+      }
+    }
+  }
+
   function isCheckmate() {
     let optionsCount = 0;
     pieces.forEach((piece) => {
@@ -602,6 +679,7 @@
     if (selectedSquare != "none") {
       if (options.length > 0 && isOption(targetSquare)) {
         markEnPassantSquareIfNeeded(selectedSquare, targetSquare);
+        updateBooleans(selectedSquare);
         movePiece(selectedSquare, targetSquare, pieces);
         const opponent = player === "w" ? "b" : "w";
         const kingSquare = getSquareOfKing(opponent, pieces);
