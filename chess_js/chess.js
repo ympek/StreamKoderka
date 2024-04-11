@@ -1,8 +1,8 @@
-(function() {
-  const canvas = document.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
-  const who = document.getElementById('who');
-  
+(function () {
+  const canvas = document.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
+  const who = document.getElementById("who");
+
   const squareSize = 72;
   const lightSquareColor = "#bbb";
   const darkSquareColor = "#888";
@@ -14,14 +14,15 @@
   let hoverSquare = "none";
   let selectedSquare = "none";
   let checkedSquare = "none";
+  let enPassantSquare = "none";
+  let capturedEnPassant = false;
 
   const pieces = [];
   const images = {};
   let options = [];
-  const optionsInCheck = [];
 
   function isOption(sq) {
-    const op = options.find(o => {
+    const op = options.find((o) => {
       return sq === o;
     });
     return !!op;
@@ -46,11 +47,21 @@
         if (square === checkedSquare) {
           ctx.fillStyle = checkColor;
         }
-        ctx.fillRect((i-1) * squareSize, (j-1) * squareSize, squareSize, squareSize);
+        ctx.fillRect(
+          (i - 1) * squareSize,
+          (j - 1) * squareSize,
+          squareSize,
+          squareSize,
+        );
 
         if (isOption(square)) {
           ctx.fillStyle = "yellow";
-          ctx.fillRect((i-1) * squareSize, (j-1) * squareSize, squareSize/3, squareSize/3);
+          ctx.fillRect(
+            (i - 1) * squareSize,
+            (j - 1) * squareSize,
+            squareSize / 3,
+            squareSize / 3,
+          );
         }
         x++;
       }
@@ -63,11 +74,11 @@
     ctx.fillStyle = "#fff";
 
     for (let i = 1; i <= 8; i++) {
-      ctx.fillText(i, (i-1) * squareSize + squareSize/2, canvas.height - 5);
+      ctx.fillText(i, (i - 1) * squareSize + squareSize / 2, canvas.height - 5);
     }
 
     for (let i = 1; i <= 8; i++) {
-      ctx.fillText(i, canvas.width - 20, (i-1) * squareSize + squareSize/2);
+      ctx.fillText(i, canvas.width - 20, (i - 1) * squareSize + squareSize / 2);
     }
   }
 
@@ -78,71 +89,93 @@
   function putPiece(id, square) {
     pieces.push({
       id: id,
-      sq: square
-    })
+      sq: square,
+    });
   }
 
   function sq(x, y) {
-    return x+"_"+y; // [x,y].join("_")
+    return x + "_" + y; // or [x,y].join("_")
   }
 
   function sqToXY(square) {
     // 1_1 => canvas's shit
-    const [i, j] = square.split("_").map(x => parseInt(x));
+    const [i, j] = square.split("_").map((x) => parseInt(x));
     return {
-      x: (i-1) * squareSize,
-      y: (j-1) * squareSize
-    }
+      x: (i - 1) * squareSize,
+      y: (j - 1) * squareSize,
+    };
   }
 
   function xyToSq(x, y) {
     const tx = Math.ceil(x / squareSize);
     const ty = Math.ceil(y / squareSize);
-    return tx+"_"+ty;
+    return tx + "_" + ty;
   }
 
   function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
-}
+  }
 
   function handleHover(e) {
     const pos = getMousePos(e);
     hoverSquare = xyToSq(pos.x, pos.y);
   }
 
+  function removeAt(square, chessboard) {
+    console.log("removeAt called", square);
+    for (let i = 0; i < chessboard.length; i++) {
+      if (chessboard[i].sq === square) {
+        chessboard[i].sq = "none";
+      }
+    }
+  }
+
   function movePiece(source, target, chessboard) {
+    let pieceId;
     for (let i = 0; i < chessboard.length; i++) {
       if (chessboard[i].sq === source) {
         chessboard[i].sq = target;
+        pieceId = chessboard[i].id;
         continue;
       }
       if (chessboard[i].sq === target) {
         chessboard[i].sq = "none";
       }
     }
+
+    if (capturedEnPassant) {
+      if (pieceId[0] === "w") {
+        const [x, y] = target.split("_").map((i) => parseInt(i));
+        removeAt(sq(x, y + 1), chessboard);
+      } else {
+        const [x, y] = target.split("_").map((i) => parseInt(i));
+        removeAt(sq(x, y - 1), chessboard);
+      }
+      capturedEnPassant = false;
+    }
   }
 
   function isOut(sq) {
-    const [x, y] = sq.split("_").map(i => parseInt(i))
+    const [x, y] = sq.split("_").map((i) => parseInt(i));
     if (x < 1 || x > 8) {
       return true;
     }
-    if (y < 1 || y > 8) {
-      return true;
-    }
-    return false;
+    return y < 1 || y > 8;
   }
 
   function isFree(square, chessboard) {
     const p = chessboard.find((piece) => {
       return piece.sq === square;
     });
-
     return !p;
+  }
+
+  function isEnPassantSquare(square) {
+    return square === enPassantSquare;
   }
 
   function isEnemyAt(square, chessboard) {
@@ -183,7 +216,7 @@
     let foundSquare = false;
     // czy w nastepnym ruchu w opcjach jest pole z krolem przeciwnika
     // console.log("kingSquare is", kingSquare);
-    chessboard.forEach(p => {
+    chessboard.forEach((p) => {
       if (foundSquare) {
         return;
       }
@@ -196,12 +229,12 @@
       if (forPlayer != player) {
         player = forPlayer;
       }
-      let tmpOptions = calculateOptions(p.sq, chessboard)
+      let tmpOptions = calculateOptions(p.sq, chessboard);
       player = tmpPlayer;
       if (tmpOptions.includes(kingSquare)) {
         resultSquare = kingSquare;
         foundSquare = true;
-        console.log("YESS!!!!")
+        console.log("YESS!!!!");
       }
       // console.log(tmpOptions);
       tmpOptions.length = 0;
@@ -217,35 +250,39 @@
     return p.id;
   }
 
-  function calculateOptionsInCheck(square, chessboard) {
-    // console.log("calculateOptionsInCheck");
-    let tmpOptions = calculateOptions(square, chessboard);
-
-    const pId = getPieceIdBySquare(square, chessboard);
-    // console.log("options", tmpOptions);
-
-    const resultingOptions = tmpOptions.filter(opt => {
-      const piecesCopy = chessboard.map(p => { return {...p}});
-      // console.log("movePiece from->to", square, opt);
-      // console.log("piecesCopy", JSON.stringify(piecesCopy))
-      // console.log("pieces", JSON.stringify(pieces))
-      movePiece(square, opt, piecesCopy);
-      // console.log("piecesCopy AFTER", JSON.stringify(piecesCopy))
-      // console.log("pieces AFTER", JSON.stringify(pieces))
-      const opponent = player === "w" ? "b" : "w";
-      if (pId[1] === "K") {
-        kingSquare = opt;
-      } else {
-        kingSquare = getSquareOfKing(player, chessboard);
-      }
-      const newCheckedSquare = calculateCheckedSquare(piecesCopy, kingSquare, opponent);
-      // console.log("newCheckedSquare", newCheckedSquare);
-
-      return newCheckedSquare === "none";
+  function filterOptionsResultingInCheck(square, chessboard, opt) {
+    const piecesCopy = chessboard.map((p) => {
+      return { ...p };
     });
+    // console.log("movePiece from->to", square, opt);
+    // console.log("piecesCopy", JSON.stringify(piecesCopy))
+    // console.log("pieces", JSON.stringify(pieces))
+    movePiece(square, opt, piecesCopy);
+    // console.log("piecesCopy AFTER", JSON.stringify(piecesCopy))
+    // console.log("pieces AFTER", JSON.stringify(pieces))
+    const opponent = player === "w" ? "b" : "w";
+    const pId = getPieceIdBySquare(square, chessboard);
+    if (pId[1] === "K") {
+      kingSquare = opt;
+    } else {
+      kingSquare = getSquareOfKing(player, chessboard);
+    }
+    const newCheckedSquare = calculateCheckedSquare(
+      piecesCopy,
+      kingSquare,
+      opponent,
+    );
+    // console.log("newCheckedSquare", newCheckedSquare);
 
-    // console.log("options after the procedure", tmpOptions);
-    return resultingOptions;
+    return newCheckedSquare === "none";
+  }
+
+  function calculatePossibleOptions(square, chessboard) {
+    let tmpOptions = calculateOptions(square, chessboard);
+    tmpOptions = tmpOptions.filter((opt) =>
+      filterOptionsResultingInCheck(square, chessboard, opt),
+    );
+    return tmpOptions;
   }
 
   function calculateOptions(square, chessboard) {
@@ -254,191 +291,177 @@
     });
 
     if (!p) {
-      return;
+      return [];
     }
 
-    const [x, y] = square.split("_").map(i => parseInt(i))
+    const [x, y] = square.split("_").map((i) => parseInt(i));
     let tmpOptions = [];
     if (p.id[1] === "P") {
-      tmpOptions = calculateOptionsForPawn(p, x, y, chessboard)
+      tmpOptions = calculateOptionsForPawn(p, x, y, chessboard);
     }
     if (p.id[1] === "N") {
-      tmpOptions = calculateOptionsForKnight(x, y, chessboard)
+      tmpOptions = calculateOptionsForKnight(x, y, chessboard);
     }
     if (p.id[1] === "B") {
-      tmpOptions = calculateOptionsForBishop(x, y, chessboard)
+      tmpOptions = calculateOptionsForBishop(x, y, chessboard);
     }
     if (p.id[1] === "R") {
-      tmpOptions = calculateOptionsForRook(x, y, chessboard)
+      tmpOptions = calculateOptionsForRook(x, y, chessboard);
     }
     if (p.id[1] === "Q") {
-      const bishopOptions = calculateOptionsForBishop(x, y, chessboard)
-      const rookOptions = calculateOptionsForRook(x, y, chessboard)
+      const bishopOptions = calculateOptionsForBishop(x, y, chessboard);
+      const rookOptions = calculateOptionsForRook(x, y, chessboard);
       tmpOptions = [...bishopOptions, ...rookOptions];
     }
     if (p.id[1] === "K") {
-      tmpOptions = calculateOptionsForKing(x, y, chessboard)
+      tmpOptions = calculateOptionsForKing(x, y, chessboard);
     }
-    return tmpOptions;
+
+    return tmpOptions.filter((opt) => !isOut(opt));
   }
 
   function calculateOptionsForKing(x, y, board) {
     let tmpOptions = [];
     let s;
-    s = sq(x-1, y-1);
+    s = sq(x - 1, y - 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x, y-1)
+    s = sq(x, y - 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+1, y-1)
+    s = sq(x + 1, y - 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x-1, y+1)
+    s = sq(x - 1, y + 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x, y+1)
+    s = sq(x, y + 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+1, y+1)
+    s = sq(x + 1, y + 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x-1, y)
+    s = sq(x - 1, y);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+1, y)
+    s = sq(x + 1, y);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
     return tmpOptions;
   }
 
   function calculateOptionsForRook(x, y, board) {
     let tmpOptions = [];
-    let cX = x+1;
+    let cX = x + 1;
     let cY = y;
-    let c = sq(cX, cY)
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      tmpOptions.push(c)
+    let c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cX++;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
-    cX = x-1;
+    cX = x - 1;
     cY = y;
-    c = sq(cX, cY)
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      tmpOptions.push(c)
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
     cX = x;
-    cY = y-1;
-    c = sq(cX, cY)
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      tmpOptions.push(c)
+    cY = y - 1;
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cY--;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
     cX = x;
-    cY = y+1;
-    c = sq(cX, cY)
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      tmpOptions.push(c)
+    cY = y + 1;
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cY++;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
     return tmpOptions;
   }
 
   function calculateOptionsForBishop(x, y, board) {
-    // console.log("calculateOptionsForBishop")
-    let cX = x+1; // 7
-    let cY = y+1; // 9
-    let c = sq(cX, cY)
+    let cX = x + 1;
+    let cY = y + 1;
+    let c = sq(cX, cY);
     let tmpOptions = [];
-    // console.log("loop 1", cX, cY, c);
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      tmpOptions.push(c)
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cX++;
       cY++;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
-    cX = x-1;
-    cY = y-1;
-    c = sq(cX, cY)
-    // console.log("loop 2", cX, cY, c);
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      // console.log("inside loop 2", cX, cY, c);
-      tmpOptions.push(c)
+    cX = x - 1;
+    cY = y - 1;
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
       cY--;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
-    cX = x+1;
-    cY = y-1;
-    c = sq(cX, cY)
-    // console.log("loop 3", cX, cY, c);
-    // 5_1
-    if (isEnemyAt("5_1", board)) {
-      // console.log("hardcoded true")
-    } else {
-      // console.log("hardcoded false")
-    }
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      // console.log("inside loop 3", cX, cY, c);
-      tmpOptions.push(c)
+    cX = x + 1;
+    cY = y - 1;
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
-        // console.log("enemy is at C, stopping", c);
         break;
       }
       cX++;
       cY--;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
 
-    cX = x-1;
-    cY = y+1;
-    c = sq(cX, cY)
-    // console.log("loop 4", cX, cY, c);
-    while(!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
-      // console.log("inside loop 4", cX, cY, c);
-      tmpOptions.push(c)
+    cX = x - 1;
+    cY = y + 1;
+    c = sq(cX, cY);
+    while (!isOut(c, board) && (isFree(c, board) || isEnemyAt(c, board))) {
+      tmpOptions.push(c);
       if (isEnemyAt(c, board)) {
         break;
       }
       cX--;
       cY++;
-      c = sq(cX, cY)
+      c = sq(cX, cY);
     }
     return tmpOptions;
   }
@@ -446,37 +469,37 @@
   function calculateOptionsForKnight(x, y, board) {
     let s;
     let tmpOptions = [];
-    s = sq(x-1, y+2);
+    s = sq(x - 1, y + 2);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+1, y+2)
+    s = sq(x + 1, y + 2);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x-1, y-2)
+    s = sq(x - 1, y - 2);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+1, y-2)
+    s = sq(x + 1, y - 2);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+2, y-1)
+    s = sq(x + 2, y - 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x+2, y+1)
+    s = sq(x + 2, y + 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x-2, y-1)
+    s = sq(x - 2, y - 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
-    s = sq(x-2, y+1)
+    s = sq(x - 2, y + 1);
     if (!isMyPieceAt(s, board)) {
-      tmpOptions.push(s)
+      tmpOptions.push(s);
     }
     return tmpOptions;
   }
@@ -485,38 +508,38 @@
     let s;
     let tmpOptions = [];
     if (p.id[0] === "w") {
-      s = sq(x, y-1)
+      s = sq(x, y - 1);
       if (isFree(s, board)) {
-        tmpOptions.push(s)
+        tmpOptions.push(s);
       }
-      s = sq(x, y-2)
+      s = sq(x, y - 2);
       if (y === 7 && isFree(s, board)) {
-        tmpOptions.push(s)
+        tmpOptions.push(s);
       }
-      s = sq(x-1, y-1)
-      if (!isFree(s, board) && isEnemyAt(s, board)) {
-        tmpOptions.push(s)
+      s = sq(x - 1, y - 1);
+      if (isEnPassantSquare(s) || (!isFree(s, board) && isEnemyAt(s, board))) {
+        tmpOptions.push(s);
       }
-      s = sq(x+1, y-1)
-      if (!isFree(s, board) && isEnemyAt(s, board)) {
-        tmpOptions.push(s)
+      s = sq(x + 1, y - 1);
+      if (isEnPassantSquare(s) || (!isFree(s, board) && isEnemyAt(s, board))) {
+        tmpOptions.push(s);
       }
     } else {
-      s = sq(x, y+1)
+      s = sq(x, y + 1);
       if (isFree(s, board)) {
-        tmpOptions.push(s)
+        tmpOptions.push(s);
       }
-      s = sq(x, y+2)
+      s = sq(x, y + 2);
       if (y === 2 && isFree(s, board)) {
-        tmpOptions.push(s)
+        tmpOptions.push(s);
       }
-      s = sq(x-1, y+1)
-      if (!isFree(s, board) && isEnemyAt(s, board)) {
-        tmpOptions.push(s)
+      s = sq(x - 1, y + 1);
+      if (isEnPassantSquare(s) || (!isFree(s, board) && isEnemyAt(s, board))) {
+        tmpOptions.push(s);
       }
-      s = sq(x+1, y+1)
-      if (!isFree(s, board) && isEnemyAt(s, board)) {
-        tmpOptions.push(s)
+      s = sq(x + 1, y + 1);
+      if (isEnPassantSquare(s) || (!isFree(s, board) && isEnemyAt(s, board))) {
+        tmpOptions.push(s);
       }
     }
     return tmpOptions;
@@ -534,26 +557,42 @@
     return p.id[0] === player;
   }
 
-  // function isSelectable(square) {
-  //   if (selectedSquare === square) {
-  //     return false;
-  //   }
+  function markEnPassantSquareIfNeeded(source, dest) {
+    const pId = getPieceIdBySquare(source, pieces);
+    if (pId[1] != "P") {
+      enPassantSquare = "none";
+      return;
+    }
 
-  // }
+    if (dest === enPassantSquare) {
+      capturedEnPassant = true;
+      enPassantSquare = "none";
+      return;
+    }
+
+    const [sx, sy] = source.split("_").map((i) => parseInt(i));
+    const [_, dy] = dest.split("_").map((i) => parseInt(i));
+    if (sy + 2 === dy) {
+      enPassantSquare = sq(sx, sy + 1);
+    } else if (sy - 2 === dy) {
+      enPassantSquare = sq(sx, sy - 1);
+    } else {
+      enPassantSquare = "none";
+    }
+    console.log("marked potential en passant sq as", enPassantSquare);
+  }
 
   function isCheckmate() {
-    const playerBeingChecked  = player === "w" ? "b" : "w";
-    const allOptions = [];
-
+    let optionsCount = 0;
     pieces.forEach((piece) => {
-      if (piece.id[0] != playerBeingChecked) {
+      if (piece.id[0] != player) {
         return;
       }
-      let opts = calculateOptionsInCheck(piece.sq, pieces);
-      console.log("OPTS________", opts);
-    })
+      let opts = calculatePossibleOptions(piece.sq, pieces);
+      optionsCount += opts.length;
+    });
 
-    return false;
+    return optionsCount === 0;
   }
 
   function handleClick(e) {
@@ -562,26 +601,25 @@
 
     if (selectedSquare != "none") {
       if (options.length > 0 && isOption(targetSquare)) {
+        markEnPassantSquareIfNeeded(selectedSquare, targetSquare);
         movePiece(selectedSquare, targetSquare, pieces);
         const opponent = player === "w" ? "b" : "w";
         const kingSquare = getSquareOfKing(opponent, pieces);
         const forPlayer = player;
         checkedSquare = calculateCheckedSquare(pieces, kingSquare, forPlayer);
-        // if (checkedSquare !== "none" && isCheckmate()) {
-        //   // oblicz opcje biorac pod uwage ze jest szach
-        // }
         switchPlayer();
+        if (isCurrentPlayerInCheck(pieces) && isCheckmate()) {
+          setTimeout(() => {
+            alert("szach mat - koniec gry");
+          }, 200);
+        }
       }
       clearSelection();
       clearOptions();
     } else {
       if (isMyPieceAt(targetSquare, pieces)) {
         selectedSquare = targetSquare;
-        if (isCurrentPlayerInCheck(pieces)) {
-          options = calculateOptionsInCheck(targetSquare, pieces);
-        } else {
-          options = calculateOptions(targetSquare, pieces);
-        }
+        options = calculatePossibleOptions(targetSquare, pieces);
       }
     }
   }
@@ -595,8 +633,8 @@
   }
 
   function initEvents() {
-    canvas.addEventListener('click', handleClick);
-    canvas.addEventListener('mousemove', handleHover);
+    canvas.addEventListener("click", handleClick);
+    canvas.addEventListener("mousemove", handleHover);
   }
 
   function initPieces() {
@@ -605,42 +643,43 @@
       putPiece("wP", sq(i, 7));
     }
 
-    ["w", "b"].forEach(c => {
+    ["w", "b"].forEach((c) => {
       const y = c === "w" ? 8 : 1;
-      putPiece(c+"R", sq(1, y));
-      putPiece(c+"N", sq(2, y));
-      putPiece(c+"B", sq(3, y));
-      putPiece(c+"Q", sq(4, y));
-      putPiece(c+"K", sq(5, y));
-      putPiece(c+"B", sq(6, y));
-      putPiece(c+"N", sq(7, y));
-      putPiece(c+"R", sq(8, y));
+      putPiece(c + "R", sq(1, y));
+      putPiece(c + "N", sq(2, y));
+      putPiece(c + "B", sq(3, y));
+      putPiece(c + "Q", sq(4, y));
+      putPiece(c + "K", sq(5, y));
+      putPiece(c + "B", sq(6, y));
+      putPiece(c + "N", sq(7, y));
+      putPiece(c + "R", sq(8, y));
     });
   }
 
   function initImages() {
-    const img = ['bbishop.png',
-      'bking.png',
-      'bknight.png',
-      'bpawn.png',
-      'bqueen.png',
-      'brook.png',
-      'wbishop.png',
-      'wking.png',
-      'wknight.png',
-      'wpawn.png',
-      'wqueen.png',
-      'wrook.png'
+    const img = [
+      "bbishop.png",
+      "bking.png",
+      "bknight.png",
+      "bpawn.png",
+      "bqueen.png",
+      "brook.png",
+      "wbishop.png",
+      "wking.png",
+      "wknight.png",
+      "wpawn.png",
+      "wqueen.png",
+      "wrook.png",
     ];
 
-    const objects = img.map(imgPath => {
+    const objects = img.map((imgPath) => {
       const imageObj = new Image();
       imageObj.src = imgPath;
-      return imageObj
+      return imageObj;
     });
 
     // id => Image
-    const keys = img.map(imgPath => {
+    const keys = img.map((imgPath) => {
       const color = imgPath.substring(0, 1);
       const piece = imgPath.substring(1, 3);
       let id = color;
@@ -668,8 +707,14 @@
 
   function drawPieces() {
     pieces.forEach((piece) => {
-      const coords = sqToXY(piece.sq)
-      ctx.drawImage(images[piece.id], coords.x, coords.y, squareSize, squareSize);
+      const coords = sqToXY(piece.sq);
+      ctx.drawImage(
+        images[piece.id],
+        coords.x,
+        coords.y,
+        squareSize,
+        squareSize,
+      );
     });
   }
 
@@ -691,4 +736,3 @@
 
   run();
 })();
-
